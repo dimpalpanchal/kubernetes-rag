@@ -10,12 +10,22 @@ class GenerationService:
         self.prompt = PromptTemplate(
             input_variables=["context", "chat_history", "query"],
             template="""You are an expert Kubernetes AI assistant. Use the following retrieved documentation chunks 
-and the chat history to answer the user's query accurately.
-If the retrieved context does not contain the answer, say that you don't know based on the provided documentation, but 
-you can provide a general answer if helpful. Always cite your sources when possible using the provided metadata.
+and chat history to answer the user's query accurately, clearly, and concisely.
+Incorporate relevant details from the provided documentation context. Provide a complete and direct answer to the user's query.
 
 Documentation Context:
 {context}
+
+Chat History:
+{chat_history}
+
+User Query: {query}
+Answer:"""
+        )
+        self.convo_prompt = PromptTemplate(
+            input_variables=["chat_history", "query"],
+            template="""You are an expert Kubernetes AI assistant. Respond warmly, concisely, and helpfully to the user's conversational message.
+If they are greeting you or asking who you are, introduce yourself as the Kubernetes Docs Assistant and let them know you're ready to answer any questions about Kubernetes, pods, deployments, services, clusters, and configuration.
 
 Chat History:
 {chat_history}
@@ -37,3 +47,12 @@ Answer:"""
         )
         response = await self.llm.ainvoke(formatted_prompt)
         return response.content.strip()
+
+    async def generate_conversational(self, query: str, chat_history: str) -> str:
+        formatted_prompt = self.convo_prompt.format(
+            chat_history=chat_history,
+            query=query
+        )
+        response = await self.llm.ainvoke(formatted_prompt)
+        return response.content.strip()
+

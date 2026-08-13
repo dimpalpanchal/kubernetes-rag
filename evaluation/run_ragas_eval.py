@@ -50,7 +50,7 @@ async def main():
             print(f"Q: {q}")
             
             top_chunks = await search.search(db, q, top_k=20)
-            reranked_chunks = reranker.rerank(q, top_chunks, top_k=4)
+            reranked_chunks = await asyncio.to_thread(reranker.rerank, q, top_chunks, top_k=4)
             
             contexts = [chunk.content for chunk in reranked_chunks]
             contexts_list.append(contexts)

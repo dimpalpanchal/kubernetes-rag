@@ -1,29 +1,17 @@
 # Kubernetes RAG Assistant
 
-An enterprise-grade, secure, context-aware RAG application for querying official Kubernetes documentation.
+An enterprise-grade, secure, retrieval-augmented generation (RAG) assistant for querying official Kubernetes documentation.
 
-## Architecture Overview
+Key features
+- Hybrid retrieval (pgvector + PostgreSQL full-text search) with Reciprocal Rank Fusion (RRF)
+- Local re-ranking with a cross-encoder and history-aware query rewriting using OpenAI
+- FastAPI backend with JWT auth and PostgreSQL storage (pgvector + tsvector)
+- Streamlit frontend chat UI with chunk-level citations
+- Evaluation via RAGAS metrics
 
-This project implements an end-to-end RAG (Retrieval-Augmented Generation) pipeline:
-- **Backend**: FastAPI with async Python.
-- **Database**: PostgreSQL with `pgvector` extension.
-  - Utilizes async `SQLAlchemy` and `asyncpg`.
-  - Uses `pgvector` for storing embeddings and cosine similarity dense search.
-  - Uses PostgreSQL full-text search (`tsvector` generated column) for sparse search.
-- **Hybrid Search**: Combines pgvector dense search and full-text search using Reciprocal Rank Fusion (RRF). Safe `plainto_tsquery` is used to prevent injection.
-- **Re-ranking**: Local cross-encoder (`BAAI/bge-reranker-base`) refines the retrieved chunks.
-- **Generation & Rewriting**: Uses OpenAI `gpt-4o-mini` to contextualize queries based on chat history and generate the final answer with citations.
-- **Authentication**: JWT authentication with bcrypt password hashing.
-- **Frontend**: Streamlit chat interface with session management and chunk citation display.
-- **Evaluation**: RAGAS metrics for Faithfulness, Answer Relevance, and Context Precision/Recall.
-
-## Setup Instructions
-
-conda activate kubernetes
-
-### 1. Environment Variables
-
-Create or update the `.env` file in the root directory:
+Quick Start (Docker)
+--------------------
+1. Create a `.env` in the repository root with the values below:
 
 ```env
 POSTGRES_USER=postgres
@@ -33,77 +21,86 @@ JWT_SECRET=supersecretkey
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-### 2. Run with Docker Compose
-
-Start the PostgreSQL database (which has pgvector pre-installed), the FastAPI backend, and the Streamlit frontend.
+2. Build and start services:
 
 ```bash
 docker-compose up -d --build
 ```
-This maps:
-- FastAPI Backend to `http://localhost:8000`
-- Streamlit Frontend to `http://localhost:8501`
-- Postgres DB to `localhost:5432`
 
-## How to Run Ingestion
+Services
+- Backend: http://localhost:8000
+- Frontend: http://localhost:8501
+- Postgres: localhost:5432
 
-The ingestion script runs independently of the main API. It clones a subset of the Kubernetes documentation (`content/en/docs/concepts/`), chunks it, generates OpenAI embeddings, and stores it in the database.
-
-Ensure the database container is running, then execute:
+Local Development (without Docker)
+---------------------------------
+Recommended: use the provided conda environment:
 
 ```bash
-# Assuming you have a local python environment matching the backend requirements:
+conda activate kubernetes
+```
+
+Start the DB (if using docker for DB only):
+
+```bash
+docker-compose up db -d
+```
+
+Start the backend:
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Start the frontend:
+
+```bash
+cd frontend
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Ingestion
+---------
+Ingestion clones/reads Kubernetes markdown, chunks it, embeds text, and stores vectors and sparse indices in Postgres. To run ingestion locally:
+
+```bash
 cd backend
 pip install -r requirements.txt
 python ingestion/ingest.py
 ```
-*Alternatively, you can run this inside the backend docker container.*
 
-## How to Start the App (Local Dev)
+Ensure the database is reachable and `OPENAI_API_KEY` is set.
 
-If you prefer to run services outside of Docker for development:
-
-1. **Start DB**: `docker-compose up db -d`
-2. **Start Backend**:
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   uvicorn app.main:app --reload --port 8000
-   ```
-3. **Start Frontend**:
-   ```bash
-   cd frontend
-   pip install -r requirements.txt
-   streamlit run app.py
-   ```
-
-## How to Run Evaluations
-
-The evaluation uses the RAGAS framework.
+Evaluation
+----------
+Run the RAGAS evaluation suite:
 
 ```bash
 cd evaluation
 pip install -r requirements.txt
 python run_ragas_eval.py
 ```
-*Note: Ensure the ingestion process is complete and `OPENAI_API_KEY` is set in the `.env` file before running evaluations.*
 
-The results will be saved in `results.csv` and `results.md`.
+Outputs are written to `results.csv` and `results.md` in the `evaluation` folder.
 
+Configuration & notes
+- Database: PostgreSQL with `pgvector` extension and a `tsvector` generated column for full-text search.
+- Re-ranking: a local cross-encoder model refines retrieval results.
+- Query rewriting: `gpt-4o-mini` is used for history-aware rewrites; replace with your preferred model if needed.
 
+Contributing
+------------
+- Fork, create a feature branch, and open a PR.
+- Run tests and linters where applicable.
 
-```
-**Hybrid RAG System for Kubernetes Documentation**
+Questions or help
+- Open an issue or contact the maintainer.
 
-Built a Hybrid RAG system for Kubernetes documentation, implementing document ingestion, chunking, and indexing of Markdown files using pgvector-based semantic search and PostgreSQL full-text search with Reciprocal Rank Fusion (RRF).
+License
+-------
+See `LICENSE` (if present) or consult the project owner for licensing.
 
-Enhanced retrieval quality by integrating a history-aware query rewriter using gpt-4o-mini and a BAAI/bge-reranker-large re-ranking layer, enabling more accurate context-aware multi-turn question answering.
-
-Developed a FastAPI backend with JWT authentication and PostgreSQL-backed chat history storage, and evaluated the system on 100+ test queries using RAGAS, achieving 0.89 Faithfulness, 0.86 Answer Relevance, and 0.91 Context Recall.
-
-
-Docs → Ingestion/Indexing → Hybrid Retrieval → Query Rewriting/Reranking → Backend → Evaluation
-
-
-Tech: Python, FastAPI, PostgreSQL, pgvector, LangChain, OpenAI, Docker, Streamlit, RAGAS
-```
+Tech stack: Python, FastAPI, PostgreSQL, pgvector, LangChain, OpenAI, Docker, Streamlit, RAGAS

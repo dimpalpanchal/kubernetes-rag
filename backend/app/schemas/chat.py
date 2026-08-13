@@ -20,3 +20,10 @@ class ChatMessageResponse(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     sources: List[DocumentChunkResponse]
+
+class ChatSessionResponse(BaseModel):
+    session_id: str
+    title: str
+    started_at: datetime
+    last_active: datetime
+

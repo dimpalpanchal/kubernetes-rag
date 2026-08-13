@@ -27,6 +27,7 @@ async def init_db(engine):
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("TRUNCATE TABLE document_chunks;"))
 
 async def main():
     print("Initializing database...")
@@ -50,9 +51,10 @@ async def main():
         filename = file_path.name.lower()
         is_changelog = "changelog" in filename
         is_version = any(filename.startswith(prefix) for prefix in ["v1.", "v2.", "v3.", "v4.", "v5."])
+        is_template = any(token in filename for token in ["bug-report", "pullrequesttemplate", "code-of-conduct", "contributing", "license", "security-policy"])
         is_large = file_path.stat().st_size > 40 * 1024
         
-        if is_changelog or is_version or is_large:
+        if is_changelog or is_version or is_template or is_large:
             skipped_count += 1
             continue
             
@@ -95,6 +97,18 @@ async def main():
     text_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(header_splits)
     print(f"Created {len(splits)} chunks from {len(docs)} documents.")
+
+    print("Deduplicating chunks by content hash...")
+    import hashlib
+    unique_splits = []
+    seen_hashes = set()
+    for split in splits:
+        content_hash = hashlib.sha256(split.page_content.strip().lower().encode("utf-8")).hexdigest()
+        if content_hash not in seen_hashes:
+            seen_hashes.add(content_hash)
+            unique_splits.append(split)
+    print(f"Retained {len(unique_splits)} unique chunks (removed {len(splits) - len(unique_splits)} exact duplicate chunks).")
+    splits = unique_splits
 
     print("Initializing OpenAI embeddings...")
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
