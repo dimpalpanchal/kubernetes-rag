@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     OPENAI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
 
     @model_validator(mode="after")
     def clean_database_url(self) -> "Settings":

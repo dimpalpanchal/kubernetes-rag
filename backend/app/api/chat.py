@@ -57,8 +57,8 @@ async def chat(
         # 4. Hybrid Search (top_k=20 candidate pool)
         top_chunks = await hybrid_search.search(db, rewritten_query, top_k=20)
         
-        # 5. Non-blocking Async Rerank & Deduplicate
-        reranked_chunks = await asyncio.to_thread(reranker.rerank, rewritten_query, top_chunks, top_k=4)
+        # 5. Groq Rerank & Deduplicate
+        reranked_chunks = await reranker.rerank_async(rewritten_query, top_chunks, top_k=4)
         
         # 6. Generation
         final_answer = await generation.generate(rewritten_query, reranked_chunks, chat_history_str)
